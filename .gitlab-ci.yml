@@ -18,5 +18,5 @@ stages:
 molecule:
   stage: test
   script:
+    - pip install jmespath
     - molecule test
-
