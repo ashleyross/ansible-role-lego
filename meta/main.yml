@@ -1,0 +1,26 @@
+---
+
+galaxy_info:
+  role_name: lego
+  author: Andrei Costescu
+  namespace: cosandr
+  description: Ansible role for setting up lego.
+
+  issue_tracker_url: https://github.com/cosandr/ansible-role-lego/issues
+
+  license: MIT
+
+  min_ansible_version: "2.12"
+
+  platforms:
+    - name: EL
+      versions:
+        - "8"
+        - "9"
+    - name: Fedora
+      versions:
+        - "any"
+
+  galaxy_tags: []
+
+dependencies: []

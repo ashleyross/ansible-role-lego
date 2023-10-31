@@ -1,0 +1,50 @@
+---
+
+dependency:
+  name: galaxy
+  options:
+    requirements-file: requirements.yml
+driver:
+  name: podman
+lint: |
+  set -e
+  yamllint .
+  ansible-lint
+platforms:
+  - name: default-lego
+    image: "${uns:-jam82}/molecule-${img:-almalinux}:${tag:-9}"
+    command: ""
+    pre_build_image: true
+    tty: false
+    tmpfs:
+      - /tmp
+      - /run
+    volumes:
+      - "/sys/fs/cgroup:/sys/fs/cgroup:ro"
+provisioner:
+  name: ansible
+  log: true
+  playbooks:
+    prepare: ../resources/playbooks/prepare.yml
+    converge: ../resources/playbooks/converge.yml
+    verify: ../resources/playbooks/verify.yml
+  inventory:
+    group_vars:
+      all:
+        lego_renew_hooks:
+          - name: sudo-restart-nginx
+            content: |
+              #!/bin/sh
+              systemctl restart nginx
+
+        lego_domains:
+          - name: "example.com"
+            email: you@example.com
+            dns: rfc2136
+            env:
+              RFC2136_NAMESERVER: 127.0.0.1
+              RFC2136_TSIG_KEY: lego
+              RFC2136_TSIG_ALGORITHM: hmac-sha256.
+              RFC2136_TSIG_SECRET: YWJjZGVmZGdoaWprbG1ub3BxcnN0dXZ3eHl6MTIzNDU=
+verifier:
+  name: ansible

@@ -1,0 +1,91 @@
+---
+
+- name: Include installation tasks
+  ansible.builtin.include_tasks:
+    file: install.yml
+    apply:
+      tags: ["install"]
+  tags: ["install"]
+
+- name: Install wrapper script
+  ansible.builtin.template:
+    src: lego-wrapper.sh.j2
+    dest: /usr/local/bin/lego-wrapper
+    owner: root
+    group: "{{ lego_group }}"
+    mode: "0750"
+  tags: ["configure"]
+
+- name: Register previously copied hooks files
+  ansible.builtin.find:
+    paths: "{{ lego_home }}/renewal-hooks"
+  register: __hooks_present
+  when: lego_provisioning_synced
+  tags: ["hooks"]
+
+- name: Copy renew hooks
+  ansible.builtin.copy:
+    content: "{{ item.content }}"
+    dest: "{{ lego_home }}/renewal-hooks/{{ item.name }}"
+    owner: root
+    group: "{{ lego_group }}"
+    mode: "0750"
+  loop: "{{ lego_renew_hooks }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: __hooks_copied
+  tags: ["hooks"]
+
+- name: Set list facts
+  ansible.builtin.set_fact:
+    __hooks_present_list: "{{ __hooks_present | json_query('files[*].path') | default([]) }}"
+    __hooks_copied_list: "{{ __hooks_copied_tmp + __hooks_copied_tmp_check }}"
+  vars:
+    __hooks_copied_tmp: "{{ __hooks_copied.results | json_query('[*].dest') | default([]) }}"
+    __hooks_copied_tmp_check: "{{ __hooks_copied.results | json_query('[*].invocation.dest') | default([]) }}"
+  when: lego_provisioning_synced
+  tags: ["hooks"]
+
+- name: Remove configs not present on deployer machine (synchronize)
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ __hooks_present_list | difference(__hooks_copied_list) }}"
+  when: lego_provisioning_synced
+  tags: ["hooks"]
+
+- name: Check existing certificates
+  become: true
+  become_user: "{{ lego_user }}"
+  check_mode: false
+  changed_when: false
+  ansible.builtin.command:
+    cmd: /usr/local/bin/lego-wrapper list
+  register: __lego_list
+  tags: ["certs"]
+
+- name: Set initial run fact
+  ansible.builtin.set_fact:
+    __lego_need_run: >-
+      {%- set ret = false -%}
+      {%- for conf in lego_domains -%}
+      {%- set domains = [conf.name] if conf.name is string else conf.name -%}
+      {%- if domains[0] not in __lego_list.stdout -%}
+      {%- set ret = true -%}
+      {%- endif -%}
+      {%- endfor -%}
+  tags: ["certs"]
+
+- name: Get certificates
+  become: true
+  become_user: "{{ lego_user }}"
+  ansible.builtin.command:
+    cmd: /usr/local/bin/lego-wrapper run
+  register: __output
+  changed_when: "'The server validated our request' in __output.stderr"
+  # For some reason initial request fails
+  until: __output.rc == 0
+  delay: 5
+  retries: 1
+  when: __lego_need_run
+  tags: ["certs", "molecule-notest"]

@@ -1,0 +1,22 @@
+---
+
+default:
+  image: "$CI_REGISTRY/andrei/ansible-role-skeleton/molecule-podman:latest"
+  tags:
+    - podman
+
+workflow:
+  rules:
+    - if: $CI_PROJECT_NAME == "ansible-role-skeleton"
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG =~ /^v.*/
+
+stages:
+  - test
+
+molecule:
+  stage: test
+  script:
+    - molecule test
+

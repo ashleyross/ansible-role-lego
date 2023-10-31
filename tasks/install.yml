@@ -1,0 +1,156 @@
+---
+
+- name: Get latest release tag
+  when: lego_version == "latest"
+  block:
+    - name: Get latest release
+      ansible.builtin.uri:
+        url: "https://api.github.com/repos/go-acme/lego/releases/latest"
+        method: GET
+        return_content: true
+        status_code: 200
+        body_format: json
+        validate_certs: true
+      no_log: false
+      register: _latest_release
+      until: _latest_release.status == 200
+      retries: 5
+      check_mode: false
+
+    - name: "Set lego version to {{ _latest_release.json.tag_name }}"
+      ansible.builtin.set_fact:
+        lego_version: "{{ _latest_release.json.tag_name }}"
+
+- name: Set checksum and filename facts
+  ansible.builtin.set_fact:
+    __lego_checksums: "{{ lookup('url', 'https://github.com/go-acme/lego/releases/download/' + lego_version + '/lego_' + lego_version[1:] + '_checksums.txt', wantlist=True) | list }}"
+    __lego_filename: "lego_{{ lego_version }}_linux_{{ go_arch }}.tar.gz"
+  run_once: true
+  check_mode: false
+  delegate_to: localhost
+
+- name: Download lego binary to local folder  # noqa risky-file-permissions
+  become: false
+  ansible.builtin.get_url:
+    url: "https://github.com/go-acme/lego/releases/download/{{ lego_version }}/{{ __lego_filename }}"
+    dest: "/tmp/{{ __lego_filename }}"
+    checksum: "sha256:{{ (__lego_checksums | select('search', __lego_filename) | first).split()[0] }}"
+  register: _download_archive
+  until: _download_archive is succeeded
+  retries: 5
+  delay: 2
+  # run_once: true # <-- this cannot be set due to multi-arch support
+  delegate_to: localhost
+  check_mode: false
+
+- name: Create lego temp dir
+  become: false
+  ansible.builtin.file:
+    path: "/tmp/lego-{{ lego_version }}-{{ go_arch }}"
+    state: directory
+    mode: "0755"
+  delegate_to: localhost
+  check_mode: false
+
+- name: Unpack lego binary
+  become: false
+  diff: false
+  ansible.builtin.unarchive:
+    src: "/tmp/{{ __lego_filename }}"
+    dest: "/tmp/lego-{{ lego_version }}-{{ go_arch }}"
+    creates: "/tmp/lego-{{ lego_version }}-{{ go_arch }}/lego"
+  delegate_to: localhost
+  check_mode: false
+
+- name: Create lego system group
+  ansible.builtin.group:
+    name: "{{ lego_group }}"
+    system: true
+    state: present
+  when: lego_group != "root"
+
+- name: Create lego system user
+  ansible.builtin.user:
+    name: "{{ lego_user }}"
+    system: true
+    shell: "/usr/sbin/nologin"
+    group: "{{ lego_group }}"
+    createhome: true
+    home: "{{ lego_home }}"
+  when: lego_user != "root"
+
+- name: Ensure lego home dir exists
+  ansible.builtin.file:
+    path: "{{ lego_home }}"
+    state: directory
+    owner: "{{ lego_user }}"
+    group: "{{ lego_group }}"
+    mode: "0750"
+
+- name: Install lego
+  ansible.builtin.copy:
+    src: "/tmp/lego-{{ lego_version }}-{{ go_arch }}/lego"
+    dest: "/usr/local/bin/lego"
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install hook script
+  ansible.builtin.template:
+    src: "run-hooks.sh.j2"
+    dest: "{{ lego_home }}/run-hooks"
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Ensure hooks directories exist
+  ansible.builtin.file:
+    path: "{{ lego_home }}/renewal-hooks"
+    state: directory
+    owner: root
+    group: "{{ lego_group }}"
+    mode: "0750"
+  tags: ["hooks"]
+
+- name: Write sudoers file for hooks
+  ansible.builtin.template:
+    src: lego.sudoers.j2
+    dest: "/etc/sudoers.d/lego-sudo-hooks"
+    mode: "0440"
+    owner: root
+    group: root
+    validate: 'visudo -cf %s'
+  when: lego_user != "root"
+
+- name: Remove sudoers file for hooks
+  ansible.builtin.file:
+    path: "/etc/sudoers.d/lego-sudo-hooks"
+    state: absent
+  when: lego_user == "root"
+
+- name: Install renew service
+  ansible.builtin.template:
+    src: "lego-renew.service.j2"
+    dest: "/etc/systemd/system/lego-renew.service"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd
+
+- name: Install renew timer
+  ansible.builtin.template:
+    src: "lego-renew.timer.j2"
+    dest: "/etc/systemd/system/lego-renew.timer"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd
+
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start renew timer
+  ansible.builtin.systemd:
+    name: lego-renew.timer
+    enabled: true
+    state: started

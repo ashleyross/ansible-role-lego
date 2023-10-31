@@ -1,0 +1,18 @@
+{{ ansible_managed | comment }}
+[Unit]
+Description=Renew ACME certificates
+Requires=network-online.target
+After=network-online.target
+
+[Service]
+User={{ lego_user }}
+Group={{ lego_group }}
+ReadWritePaths={{ lego_home }}
+ExecStart=/usr/local/bin/lego-wrapper renew --renew-hook="{{ lego_home }}/run-hooks"
+PrivateDevices=true
+PrivateTmp=true
+ProtectHome=true
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectSystem=strict

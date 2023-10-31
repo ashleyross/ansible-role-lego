@@ -1,0 +1,10 @@
+{{ ansible_managed | comment }}
+[Unit]
+Description=Auto renew ACME certificates
+
+[Timer]
+OnCalendar={{ lego_renew_oncalendar }}
+RandomizedDelaySec={{ lego_renew_random_delay }}
+
+[Install]
+WantedBy=timers.target

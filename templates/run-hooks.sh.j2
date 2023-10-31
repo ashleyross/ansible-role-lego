@@ -1,0 +1,17 @@
+#!/bin/sh
+
+for f in "{{ lego_home }}/renewal-hooks"/*; do
+    if [ -x "$f" ]; then
+        filename="$(basename "$f")"
+        case "$filename" in
+            sudo*)
+                sudo "$f"
+                ;;
+            *)
+                "$f"
+                ;;
+        esac
+    else
+        echo "WARNING: '$f' is not executable" >&2
+    fi
+done
