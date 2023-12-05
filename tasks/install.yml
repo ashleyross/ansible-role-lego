@@ -87,6 +87,16 @@
     group: "{{ lego_group }}"
     mode: "0750"
 
+- name: Set SELinux context for certificates
+  community.general.sefcontext:
+    target: "{{ lego_home }}/certificates(/.*)?"
+    seuser: system_u
+    setype: cert_t
+    state: present
+  notify: Restore certificates context
+  when: ansible_selinux.status == "enabled"
+  tags: ["selinux"]
+
 - name: Install lego
   ansible.builtin.copy:
     src: "/tmp/lego-{{ lego_version }}-{{ go_arch }}/lego"

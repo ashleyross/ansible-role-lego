@@ -3,3 +3,6 @@
 - name: Reload systemd
   ansible.builtin.systemd:
     daemon_reload: true
+
+- name: Restore certificates context  # noqa no-changed-when - handler
+  ansible.builtin.command: "restorecon -r {{ lego_home }}/certificates"
