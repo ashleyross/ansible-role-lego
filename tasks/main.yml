@@ -60,20 +60,23 @@
   check_mode: false
   changed_when: false
   ansible.builtin.command:
-    cmd: /usr/local/bin/lego-wrapper list
+    cmd: /usr/local/bin/lego list --names
+  environment:
+    LEGO_PATH: "{{ lego_home }}"
   register: __lego_list
   tags: ["certs"]
 
-- name: Set initial run fact
+- name: Set fact for missing domains
   ansible.builtin.set_fact:
-    __lego_need_run: >-
-      {%- set ret = false -%}
+    __lego_missing_domains: >-
+      {%- set missing = [] -%}
       {%- for conf in lego_domains -%}
       {%- set domains = [conf.name] if conf.name is string else conf.name -%}
       {%- if domains[0] not in __lego_list.stdout -%}
-      {%- set ret = true -%}
+      {{- missing.append(domains[0]) -}}
       {%- endif -%}
       {%- endfor -%}
+      {{ missing }}
   tags: ["certs"]
 
 - name: Get certificates
@@ -87,5 +90,5 @@
   until: __output.rc == 0
   delay: 5
   retries: 1
-  when: __lego_need_run
+  when: __lego_missing_domains
   tags: ["certs", "molecule-notest"]

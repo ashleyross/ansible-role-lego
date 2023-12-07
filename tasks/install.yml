@@ -87,15 +87,28 @@
     group: "{{ lego_group }}"
     mode: "0750"
 
-- name: Set SELinux context for certificates
-  community.general.sefcontext:
-    target: "{{ lego_home }}/certificates(/.*)?"
-    seuser: system_u
-    setype: cert_t
-    state: present
-  notify: Restore certificates context
+- name: SELinux tasks
   when: ansible_selinux.status == "enabled"
   tags: ["selinux"]
+  block:
+    - name: Set SELinux context for certificates
+      community.general.sefcontext:
+        target: "{{ lego_home }}/certificates(/.*)?"
+        seuser: system_u
+        setype: cert_t
+        state: present
+      notify: Restore certificates context
+
+    # Create it so restorecon doesn't fail
+    - name: Ensure certificates dir exists
+      ansible.builtin.file:
+        path: "{{ lego_home }}/certificates"
+        state: directory
+        owner: "{{ lego_user }}"
+        group: "{{ lego_group }}"
+        mode: "0700"
+        seuser: system_u
+        setype: cert_t
 
 - name: Install lego
   ansible.builtin.copy:
