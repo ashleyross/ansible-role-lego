@@ -9,10 +9,12 @@ User={{ lego_user }}
 Group={{ lego_group }}
 ReadWritePaths={{ lego_home }}
 ExecStart=/usr/local/bin/lego-wrapper renew --renew-hook="{{ lego_home }}/run-hooks"
-PrivateDevices=true
 PrivateTmp=true
 ProtectHome=true
 ProtectControlGroups=true
+ProtectSystem=strict
+{% if lego_renew_hooks | selectattr('name', 'search', '^sudo-.*') | length == 0 %}
+PrivateDevices=true
 ProtectKernelModules=true
 ProtectKernelTunables=true
-ProtectSystem=strict
+{% endif %}
