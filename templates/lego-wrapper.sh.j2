@@ -13,10 +13,15 @@ global_exit=0
 
 {% for conf in lego_domains %}
 {% set domains = [conf.name] if conf.name is string else conf.name %}
+{% set opts = conf.get('options', {}) %}
+{% set global_opts_raw = opts.get('global', []) %}
+{% set global_opts = [global_opts_raw] if global_opts_raw is string else global_opts_raw %}
+{% set command_opts_raw = opts.get('command', []) %}
+{% set command_opts = [command_opts_raw] if command_opts_raw is string else command_opts_raw %}
 {% for k, v in conf.get('env', {}).items() %}
 {{ k }}="{{ v }}" \
 {% endfor %}
-/usr/local/bin/lego --accept-tos --email "{{ conf.email }}" --dns "{{ conf.dns }}"{% for d in domains %} --domains "{{ d }}"{% endfor %} "$@"
+/usr/local/bin/lego --accept-tos --email "{{ conf.email }}" --dns "{{ conf.dns }}"{% for d in domains %} --domains "{{ d }}"{% endfor %}{% for g in global_opts %} {{ g }}{% endfor %} "$@"{% for c in command_opts %} {{ c }}{% endfor %} 
 tmp_exit=$?
 global_exit=$(( tmp_exit > global_exit ? tmp_exit : global_exit ))
 {% endfor %}
