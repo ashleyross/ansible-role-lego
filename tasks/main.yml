@@ -85,10 +85,10 @@
   ansible.builtin.command:
     cmd: /usr/local/bin/lego-wrapper run
   register: __output
-  changed_when: "'The server validated our request' in __output.stderr"
+  changed_when: __output.stderr is ansible.builtin.contains 'The server validated our request'
   # For some reason initial request fails
   until: __output.rc == 0
   delay: 5
   retries: 1
-  when: __lego_missing_domains
+  when: __lego_missing_domains | length > 0
   tags: ["certs", "molecule-notest"]
