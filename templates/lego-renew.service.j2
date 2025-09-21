@@ -10,7 +10,7 @@ Group={{ lego_group }}
 ExecStart=/usr/local/bin/lego-wrapper renew --renew-hook="{{ lego_home }}/run-hooks"
 {% if not lego_service_sandbox_disable %}
 {% set readwritepaths = [lego_service_sandbox_readwritepaths] if lego_service_sandbox_readwritepaths is string else lego_service_sandbox_readwritepaths %}
-ReadWritePaths={{ lego_home }}{% for d in readwritepaths %} {{ d }}{% endfor %}
+ReadWritePaths={{ lego_home }}{% for d in readwritepaths %} {{ d }}{% endfor +%}
 {% if readwritepaths | select('search', '^/tmp/.*') | length == 0 %}
 PrivateTmp=true
 {% endif %}

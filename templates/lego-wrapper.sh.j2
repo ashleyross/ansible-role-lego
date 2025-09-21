@@ -21,7 +21,7 @@ global_exit=0
 {% for k, v in conf.get('env', {}).items() %}
 {{ k }}="{{ v }}" \
 {% endfor %}
-/usr/local/bin/lego --accept-tos --email "{{ conf.email }}" --dns "{{ conf.dns }}"{% for d in domains %} --domains "{{ d }}"{% endfor %}{% for g in global_opts %} {{ g }}{% endfor %} "$@"{% for c in command_opts %} {{ c }}{% endfor %} 
+/usr/local/bin/lego --accept-tos --email "{{ conf.email }}" --dns "{{ conf.dns }}"{% for d in domains %} --domains "{{ d }}"{% endfor %}{% for g in global_opts %} {{ g }}{% endfor %} "$@"{% for c in command_opts %} {{ c }}{% endfor +%}
 tmp_exit=$?
 global_exit=$(( tmp_exit > global_exit ? tmp_exit : global_exit ))
 {% endfor %}
