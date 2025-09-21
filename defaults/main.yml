@@ -19,3 +19,5 @@ lego_domains: []
 
 lego_provisioning_synced: true
 lego_renew_hooks: []
+lego_service_sandbox_readwritepaths: []
+lego_service_sandbox_disable: false
